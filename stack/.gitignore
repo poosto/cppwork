@@ -1,0 +1,28 @@
+# Build
+build/
+bin
+test_runner
+
+# Compile commands (symlink is fine to keep)
+compile_commands.json
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# Compiler
+*.o
+*.a
+*.so
+*.dylib
+*.dSYM/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.cache/
