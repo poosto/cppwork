@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Build directories
+build/
+.cache/
+
+# Compiled binaries / make outputs
+bin
+*.o
+*.a
+*.out
+*.so
+*.dylib
+*.dSYM/
+
+# Common binary names from Makefiles
+vector_test
+test_runner
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

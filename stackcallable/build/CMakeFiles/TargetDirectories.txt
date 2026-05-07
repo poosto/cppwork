@@ -1,3 +1,0 @@
-/Users/prestonmeek/Desktop/PROJECTS/cppwork/stackcallable/build/CMakeFiles/stackcallable.dir
-/Users/prestonmeek/Desktop/PROJECTS/cppwork/stackcallable/build/CMakeFiles/edit_cache.dir
-/Users/prestonmeek/Desktop/PROJECTS/cppwork/stackcallable/build/CMakeFiles/rebuild_cache.dir
