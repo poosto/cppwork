@@ -21,9 +21,11 @@ public:
 
   Awaitable operator co_await() { return Awaitable{*this}; }
 
-  void tick() const {
-    if (awaiter_) {
-      awaiter_->handle.resume();
+  void tick() {
+    // Exchange awaiter_ ptr with nullptr, only resume if non-nullptr to begin
+    // with This ensures we don't resume the same awaiter twice
+    if (auto *a = std::exchange(awaiter_, nullptr)) {
+      a->handle.resume();
     }
   }
 
@@ -85,6 +87,7 @@ int main() {
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
   timer.tick();
+  timer.tick(); // should do nothing
 
   std::println("Result: {}", task_handle.result().value_or(-1));
 }
