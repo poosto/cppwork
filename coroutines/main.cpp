@@ -52,7 +52,11 @@ public:
 
   void start() { coro_.resume(); }
 
-  std::optional<T> result() const { return coro_.promise().result; }
+  std::optional<T> result() const
+    requires(!std::is_void_v<T>)
+  {
+    return coro_.promise().result;
+  }
 
   auto operator co_await() {
     struct awaiter {
@@ -63,8 +67,10 @@ public:
         t.coro_.promise().parent = suspended;
         t.coro_.resume();
       }
-      std::optional<T> await_resume() const noexcept {
-        return t.coro_.promise().result;
+      auto await_resume() const noexcept {
+        if constexpr (!std::is_void_v<T>) {
+          return t.coro_.promise().result;
+        }
       }
     };
 
@@ -75,8 +81,16 @@ private:
   std::coroutine_handle<promise_type> coro_;
 };
 
-template <typename T> struct Task<T>::promise_type {
+template <typename T> struct return_handler {
   std::optional<T> result;
+  void return_value(T &&val) { result.emplace(std::move(val)); }
+};
+
+template <> struct return_handler<void> {
+  void return_void() {}
+};
+
+template <typename T> struct Task<T>::promise_type : return_handler<T> {
   std::coroutine_handle<> parent{};
 
   Task get_return_object() {
@@ -84,8 +98,6 @@ template <typename T> struct Task<T>::promise_type {
   }
 
   auto unhandled_exception() { std::terminate(); }
-
-  void return_value(T &&value) { result.emplace(std::move(value)); }
 
   std::suspend_always initial_suspend() noexcept { return {}; }
   auto final_suspend() noexcept {
@@ -126,13 +138,13 @@ Task<int> chained(Timer &timer) {
   co_return 69;
 }
 
-Task<float> bar(Timer &timer) {
+Task<void> bar(Timer &timer) {
   std::println("Before first tick");
   co_await timer;
   std::println("Before second tick");
   co_await timer;
   std::println("After first + second tick");
-  co_return 3.14;
+  co_return;
 }
 
 int main() {
@@ -151,6 +163,5 @@ int main() {
     timer.tick();
   }
 
-  std::println("Results: {} {}", t1.result().value_or(-1),
-               t2.result().value_or(-1.0));
+  std::println("Result: {}", t1.result().value_or(-1));
 }
