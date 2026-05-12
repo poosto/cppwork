@@ -10,19 +10,19 @@ public:
     std::coroutine_handle<> handle;
     Awaitable *next_{};
 
-    bool await_ready() const noexcept { return false; }
+    auto await_ready() const noexcept -> bool { return false; }
 
-    void await_suspend(std::coroutine_handle<> suspended) noexcept {
+    auto await_suspend(std::coroutine_handle<> suspended) noexcept -> void {
       next_ = std::exchange(tmr.awaiter_, this);
       handle = suspended;
     }
 
-    void await_resume() const noexcept {}
+    auto await_resume() const noexcept -> void {}
   };
 
-  Awaitable operator co_await() { return Awaitable{*this}; }
+  auto operator co_await() -> Awaitable { return Awaitable{*this}; }
 
-  void tick() {
+  auto tick() -> void {
     // Store old list so that if something co_awaits the timer again after being
     // resumed, it isn't immediately invoked in the same tick iteration.
     // This will wipe the current awaiter_ list (nullptr), store it in this temp
@@ -50,9 +50,9 @@ public:
   Task(std::coroutine_handle<promise_type> coro) : coro_{coro} {}
   ~Task() { coro_.destroy(); }
 
-  void start() { coro_.resume(); }
+  auto start() -> void { coro_.resume(); }
 
-  std::optional<T> result() const
+  auto result() const -> std::optional<T>
     requires(!std::is_void_v<T>)
   {
     return coro_.promise().result;
@@ -62,8 +62,8 @@ public:
     struct awaiter {
       Task &t;
 
-      bool await_ready() const noexcept { return false; };
-      void await_suspend(std::coroutine_handle<> suspended) noexcept {
+      auto await_ready() const noexcept -> bool { return false; }
+      auto await_suspend(std::coroutine_handle<> suspended) noexcept -> void {
         t.coro_.promise().parent = suspended;
         t.coro_.resume();
       }
@@ -83,29 +83,29 @@ private:
 
 template <typename T> struct return_handler {
   std::optional<T> result;
-  void return_value(T &&val) { result.emplace(std::move(val)); }
+  auto return_value(T &&val) -> void { result.emplace(std::move(val)); }
 };
 
 template <> struct return_handler<void> {
-  void return_void() {}
+  auto return_void() -> void {}
 };
 
 template <typename T> struct Task<T>::promise_type : return_handler<T> {
   std::coroutine_handle<> parent{};
 
-  Task get_return_object() {
+  auto get_return_object() -> Task {
     return {std::coroutine_handle<promise_type>::from_promise(*this)};
   }
 
   auto unhandled_exception() { std::terminate(); }
 
-  std::suspend_always initial_suspend() noexcept { return {}; }
+  auto initial_suspend() noexcept -> std::suspend_always { return {}; }
   auto final_suspend() noexcept {
     struct final_awaiter {
-      bool await_ready() const noexcept { return false; }
+      auto await_ready() const noexcept -> bool { return false; }
 
-      std::coroutine_handle<>
-      await_suspend(std::coroutine_handle<promise_type> suspended) noexcept {
+      auto await_suspend(std::coroutine_handle<promise_type> suspended) noexcept
+          -> std::coroutine_handle<> {
         if (suspended.promise().parent) {
           // SYMMETRIC TRANSFER: does not create a new stack frame
           // It's a tail call so instead of nesting a bunch of stack frames,
@@ -117,28 +117,28 @@ template <typename T> struct Task<T>::promise_type : return_handler<T> {
         }
       }
 
-      void await_resume() const noexcept {}
+      auto await_resume() const noexcept -> void {}
     };
 
     return final_awaiter{};
   }
 };
 
-Task<int> foo(Timer &timer) {
+auto foo(Timer &timer) -> Task<int> {
   std::println("Before suspend");
   co_await timer;
   std::println("After suspend");
   co_return 42;
 }
 
-Task<int> chained(Timer &timer) {
+auto chained(Timer &timer) -> Task<int> {
   std::println("Outer coroutine start");
   auto x = co_await foo(timer);
   std::println("Outer coroutine end: {}", x.value_or(-1));
   co_return 69;
 }
 
-Task<void> bar(Timer &timer) {
+auto bar(Timer &timer) -> Task<void> {
   std::println("Before first tick");
   co_await timer;
   std::println("Before second tick");
