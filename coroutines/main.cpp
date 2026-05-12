@@ -8,11 +8,12 @@ public:
   struct Awaitable {
     Timer &tmr;
     std::coroutine_handle<> handle;
+    Awaitable *next_{};
 
     bool await_ready() const noexcept { return false; }
 
     void await_suspend(std::coroutine_handle<> suspended) noexcept {
-      tmr.awaiter_ = this;
+      next_ = std::exchange(tmr.awaiter_, this);
       handle = suspended;
     }
 
@@ -22,9 +23,17 @@ public:
   Awaitable operator co_await() { return Awaitable{*this}; }
 
   void tick() {
+    // Store old list so that if something co_awaits the timer again after being
+    // resumed, it isn't immediately invoked in the same tick iteration.
+    // This will wipe the current awaiter_ list (nullptr), store it in this temp
+    // variable, then if any new awaiters are added to awaiter_ it's to a fresh
+    // list!
+    auto *cur = std::exchange(awaiter_, nullptr);
+
     // Exchange awaiter_ ptr with nullptr, only resume if non-nullptr to begin
     // with. This ensures we don't resume the same awaiter twice
-    if (auto *a = std::exchange(awaiter_, nullptr)) {
+    while (cur) {
+      auto *a = std::exchange(cur, cur->next_);
       a->handle.resume();
     }
   }
@@ -117,15 +126,31 @@ Task<int> chained(Timer &timer) {
   co_return 69;
 }
 
+Task<float> bar(Timer &timer) {
+  std::println("Before first tick");
+  co_await timer;
+  std::println("Before second tick");
+  co_await timer;
+  std::println("After first + second tick");
+  co_return 3.14;
+}
+
 int main() {
   auto timer = Timer{};
-  auto task_handle = chained(timer);
 
-  task_handle.start();
+  auto t1 = chained(timer);
+  auto t2 = bar(timer);
 
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  timer.tick();
-  timer.tick(); // should do nothing
+  t1.start();
+  t2.start();
 
-  std::println("Result: {}", task_handle.result().value_or(-1));
+  // Empty ticks should do nothing
+  constexpr size_t NUM_ITERATIONS = 4;
+  for (int i = 0; i < NUM_ITERATIONS; ++i) {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    timer.tick();
+  }
+
+  std::println("Results: {} {}", t1.result().value_or(-1),
+               t2.result().value_or(-1.0));
 }
