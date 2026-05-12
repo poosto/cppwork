@@ -147,7 +147,7 @@ auto bar(Timer &timer) -> Task<void> {
   co_return;
 }
 
-int main() {
+auto main() -> int {
   auto timer = Timer{};
 
   auto t1 = chained(timer);
