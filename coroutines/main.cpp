@@ -86,6 +86,10 @@ template <typename T> struct Task<T>::promise_type {
       std::coroutine_handle<>
       await_suspend(std::coroutine_handle<promise_type> suspended) noexcept {
         if (suspended.promise().parent) {
+          // SYMMETRIC TRANSFER: does not create a new stack frame
+          // It's a tail call so instead of nesting a bunch of stack frames,
+          // reuse the same one! The coroutine/heap frame ofc lives until the
+          // destructure is called (.destroy())
           return suspended.promise().parent;
         } else {
           return std::noop_coroutine();
